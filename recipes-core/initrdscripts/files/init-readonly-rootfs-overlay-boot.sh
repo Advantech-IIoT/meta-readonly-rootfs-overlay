@@ -81,20 +81,7 @@ log() {
 }
 
 wait_for_device() {
-	local dev=$1
-
-	# Skip for e.g. `rootrw=ubi0:overlay`
-	echo "$dev" | grep -q ":" && return
-
-	counter=0
-	while [ ! -b "$dev" ]; do
-		sleep .100
-		counter=$((counter + 1))
-		if [ $counter -ge 50 ]; then
-			fatal "$dev is not availble"
-			exit
-		fi
-	done
+	echo "wait"
 }
 
 early_setup
@@ -215,4 +202,5 @@ mount_and_boot() {
 		fatal "Couldn't chroot, dropping to shell"
 }
 
+modprobe overlay
 mount_and_boot
