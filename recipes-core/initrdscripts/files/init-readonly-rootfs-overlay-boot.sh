@@ -308,6 +308,7 @@ mount_and_boot() {
 	fi
 }
 
+<<<<<<< HEAD
 if [ -n "${INITRAMFS_FRAMEWORK}" ]; then
 	overlayroot_enabled() {
 		return 0
@@ -322,7 +323,6 @@ if [ -n "${INITRAMFS_FRAMEWORK}" ]; then
 
 		read_args
 
-		modprobe overlay
 		mount_and_boot
 
 		# Restore shell mode
@@ -335,6 +335,5 @@ else
 
 	read_args
 
-	modprobe overlay
 	mount_and_boot
 fi
