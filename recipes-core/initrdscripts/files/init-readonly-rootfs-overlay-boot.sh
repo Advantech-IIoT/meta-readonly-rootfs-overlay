@@ -172,20 +172,7 @@ resolve_device() {
 }
 
 wait_for_device() {
-	local dev=$1
-
-	# Skip for e.g. `rootrw=ubi0:overlay`
-	echo "$dev" | grep -q ":" && return
-
-	counter=0
-	while [ ! -b "$dev" ]; do
-		sleep .100
-		counter=$((counter + 1))
-		if [ $counter -ge 50 ]; then
-			fatal "$dev is not availble"
-			exit
-		fi
-	done
+	echo "wait"
 }
 
 mount_and_boot() {
@@ -335,6 +322,7 @@ if [ -n "${INITRAMFS_FRAMEWORK}" ]; then
 
 		read_args
 
+		modprobe overlay
 		mount_and_boot
 
 		# Restore shell mode
@@ -347,5 +335,6 @@ else
 
 	read_args
 
+	modprobe overlay
 	mount_and_boot
 fi
