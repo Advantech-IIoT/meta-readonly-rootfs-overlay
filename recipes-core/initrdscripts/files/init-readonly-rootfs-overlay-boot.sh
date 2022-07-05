@@ -202,5 +202,4 @@ mount_and_boot() {
 		fatal "Couldn't chroot, dropping to shell"
 }
 
-modprobe overlay
 mount_and_boot
