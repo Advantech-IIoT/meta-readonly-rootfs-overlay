@@ -1,0 +1,72 @@
+#!/bin/bash
+
+CURRAPP=$0
+PARM1=$1
+
+if [ "x${PARM1}" = "x-show" ]; then
+	echo -e "at-uwf:\t\tInstalled"
+	grep -q "init=/init" /proc/cmdline && grep -q overlay /proc/mounts
+	if [ $? -eq 0 ]; then
+		echo -e "Current:\tReadOnly enable in root filesystem only"
+	else
+		echo -e "Current:\tReadOnly disable"
+	fi
+	exit 0
+elif [ "x${PARM1}" = "x-install" ]; then
+	grep -q "init=/init" /proc/cmdline && echo "Error: current is readonly setting." && exit 1
+	fw_printenv --version > /dev/null && fw_printenv --version > /dev/null
+	if [ $? -eq 0 ]; then
+		# save the "mmcargs" from uboot env
+		fw_printenv mmcargs | cut -c9- > /etc/cmdline.old
+		if [ $? -eq 0 ]; then
+			# the "mmcargs" of uboot env add init=/init
+			fw_setenv mmcargs "$(cat /etc/cmdline.old) init=/init"
+			if [ $? -eq 0 ]; then
+				echo "Install successful, system will reboot"
+				sleep 5
+				reboot
+			else
+				echo "Failed, Need to check uboot boot command."
+			fi
+		else
+			echo "Failed, Need to check uboot env"
+		fi
+	else
+		echo "Error: uboot tools is lost."
+	fi
+elif [ "x${PARM1}" = "x-uninstall" ]; then
+	grep -q "init=/init" /proc/cmdline
+	if [ $? -ne 0 ]; then
+		echo "Error: current is not readonly setting."
+		exit 1
+	fi
+	fw_printenv --version > /dev/null && fw_printenv --version > /dev/null
+	if [ $? -eq 0 ]; then
+		if [ -f /etc/cmdline.old ]; then
+			# restore the "mmcargs" content to uboot env
+			fw_setenv mmcargs "$(cat /etc/cmdline.old)"
+			if [ $? -eq 0 ]; then
+				echo "Uninstall successful, system will reboot"
+				sleep 5
+				reboot
+			else
+				echo "Failed, Need to check uboot boot command."
+			fi
+		else
+			echo "Failed, lost the file after install."
+		fi
+	else
+		echo "Error: uboot tools is lost."
+	fi
+else
+echo -e "\nAdvantech Read-only system setting"
+echo "Usage:"
+echo " $(basename $CURRAPP) [options]"
+echo ""
+echo "Options:"
+echo -e " -show\t\t\tShow current read-only status"
+echo -e " -install\t\tInstall read-only system setting"
+echo -e " -uninstall\t\tUninstall read-only system setting"
+echo -e " -help\t\t\tDisplay this help"
+echo ""
+fi
