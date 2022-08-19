@@ -19,12 +19,14 @@ elif [ "x${PARM1}" = "x-install" ]; then
         # catch the "mmcargs" from uboot env
         fw_printenv mmcargs | cut -c9- > /tmp/cmdline.old
         if [ $? -eq 0 ]; then
-            # the "mmcargs" of uboot env add init=/init
+            # if original mmcargs is already have "init=/init", just reboot it
+            grep -q "init=/init" /tmp/cmdline.old && /bin/systemctl reboot && exit 0
+            # or the "mmcargs" of uboot env add init=/init
             fw_setenv mmcargs "$(cat /tmp/cmdline.old) init=/init"
             if [ $? -eq 0 ]; then
                 echo "Install successful, system will reboot."
                 sleep 5
-                reboot
+                /bin/systemctl reboot
             else
                 echo "Error: Failed to change readonly setting."
             fi
