@@ -78,15 +78,7 @@ log() {
 }
 
 wait_for_device() {
-    counter=0
-    while [ ! -b $1 ]; do
-        sleep .100
-        counter=$((counter + 1))
-        if [ $counter -ge 50 ]; then
-            fatal "$1 is not availble"
-            exit
-        fi
-    done
+	echo "wait"
 }
 
 early_setup
