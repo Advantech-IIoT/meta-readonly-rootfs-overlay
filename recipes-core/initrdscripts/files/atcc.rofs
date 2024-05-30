@@ -3,8 +3,31 @@
 CURRAPP=$0
 PARM1=$1
 GRUBENV_PATH=/boot/efi/grub/grubenv
+CHK_EFI_PATH=/sys/firmware/efi/
+
+# check utility exist?
+# if efi env, use grub-edit or fw_printenv/fw_setenv
+if [ -d ${CHK_EFI_PATH} ]; then
+	grub-editenv --version > /dev/null && grub-editenv --version > /dev/null
+	if [ $? -ne 0 ]; then
+		 echo "Error: the grub tools are lost."
+		 exit 1
+	else
+		if [ ! -f ${GRUBENV_PATH} ]; then
+			# grubenv not exist, create it
+			grub-editenv ${GRUBENV_PATH} create
+		fi
+	fi
+else
+	fw_printenv --version > /dev/null && fw_printenv --version > /dev/null
+	if [ $? -ne 0 ]; then
+		 echo "Error: the tools are lost."
+		 exit 1
+	fi
+fi
 
 if [ "x${PARM1}" = "x-show" ]; then
+# for show
     echo -e "at-uwf:\t\tInstalled"
     grep -q "init=/init" /proc/cmdline && grep -q overlay /proc/mounts
     if [ $? -eq 0 ]; then
@@ -14,13 +37,11 @@ if [ "x${PARM1}" = "x-show" ]; then
     fi
     exit 0
 elif [ "x${PARM1}" = "x-install" ]; then
+# for install
     grep -q "init=/init" /proc/cmdline && echo "Current is readonly. Nothing has changed." && exit 1
-    grub-editenv --version > /dev/null && grub-editenv --version > /dev/null
-    if [ $? -eq 0 ]; then
-		# grubenv not exist, create it
-		if [ ! -f ${GRUBENV_PATH} ]; then
-			grub-editenv ${GRUBENV_PATH} create
-		fi
+	if [ -d ${CHK_EFI_PATH} ]; then	
+	# grub mode
+		
 		# set "readonlyenv" to grub env
 		grub-editenv ${GRUBENV_PATH} set readonlyenv=init=/init
 		if [ $? -eq 0 ]; then
@@ -31,21 +52,35 @@ elif [ "x${PARM1}" = "x-install" ]; then
 			echo "Error: Failed to set grub env."
 			exit 1
 		fi
-    else
-        echo "Error: the grub tools are lost."
-    fi
+	else	
+	# fw mode
+		# catch the "mmcargs" from uboot env
+		fw_printenv mmcargs | cut -c9- > /tmp/cmdline.old
+		if [ $? -eq 0 ]; then
+			# if original mmcargs is already have "init=/init", just reboot it
+			grep -q "init=/init" /tmp/cmdline.old && /bin/systemctl reboot && exit 0
+			# or the "mmcargs" of uboot env add init=/init
+			fw_setenv mmcargs "$(cat /tmp/cmdline.old) init=/init"
+			if [ $? -eq 0 ]; then
+				echo "Install successful, system will reboot."
+				sleep 5
+				/bin/systemctl reboot
+			else
+				echo "Error: Failed to change readonly setting."
+			fi
+		else
+			echo "Error: Failed to get boot command of uboot."
+		fi
+	fi
 elif [ "x${PARM1}" = "x-uninstall" ]; then
+# for uninstall
     grep -q "init=/init" /proc/cmdline
     if [ $? -ne 0 ]; then
         echo "Current is not readonly. Nothing has changed."
         exit 1
     fi
-    grub-editenv --version > /dev/null && grub-editenv --version > /dev/null
-    if [ $? -eq 0 ]; then
-		# grubenv not exist, create it
-		if [ ! -f ${GRUBENV_PATH} ]; then
-			grub-editenv ${GRUBENV_PATH} create
-		fi
+	if [ -d ${CHK_EFI_PATH} ]; then
+	# grub mode
 		# check grub env have "readonlyenv"
 		grub-editenv ${GRUBENV_PATH} list | grep "readonlyenv=" > /dev/null
 		if [ $? -eq 0 ]; then
@@ -64,18 +99,33 @@ elif [ "x${PARM1}" = "x-uninstall" ]; then
 			echo "already uninstall, please reboot."
 			exit 1
 		fi
-    else
-        echo "Error: the grub tools are lost."
-    fi
+	else
+	# fw mode
+		# catch the "mmcargs" from uboot env and delete " init=/init"
+        fw_printenv mmcargs | cut -c9- | sed 's/\ init=\/init//g' > /tmp/cmdline.old
+        if [ $? -eq 0 ]; then
+            fw_setenv mmcargs "$(cat /tmp/cmdline.old)"
+            if [ $? -eq 0 ]; then
+                echo "Uninstall successful, system will reboot"
+                sleep 5
+                /bin/systemctl reboot
+            else
+                echo "Error: Failed to change readonly setting."
+            fi
+        else
+            echo "Error: Failed to get boot command of uboot."
+        fi
+	fi
 else
-echo -e "\nAdvantech Read-only system setting"
-echo "Usage:"
-echo " $(basename $CURRAPP) [options]"
-echo ""
-echo "Options:"
-echo -e " -show\t\t\tShow current read-only status"
-echo -e " -install\t\tInstall read-only system setting"
-echo -e " -uninstall\t\tUninstall read-only system setting"
-echo -e " -help\t\t\tDisplay this help"
-echo ""
+# for help
+	echo -e "\nAdvantech Read-only system setting"
+	echo "Usage:"
+	echo " $(basename $CURRAPP) [options]"
+	echo ""
+	echo "Options:"
+	echo -e " -show\t\t\tShow current read-only status"
+	echo -e " -install\t\tInstall read-only system setting"
+	echo -e " -uninstall\t\tUninstall read-only system setting"
+	echo -e " -help\t\t\tDisplay this help"
+	echo ""
 fi
